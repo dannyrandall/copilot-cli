@@ -4,9 +4,10 @@
 package cli
 
 import (
-	"errors"
 	"fmt"
 	"io"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/ssm"
@@ -20,6 +21,12 @@ import (
 	"github.com/aws/copilot-cli/internal/pkg/term/log"
 	"github.com/aws/copilot-cli/internal/pkg/term/prompt"
 	"github.com/aws/copilot-cli/internal/pkg/term/selector"
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
 
@@ -119,76 +126,280 @@ func newSvcLogOpts(vars wkldLogsVars) (*svcLogsOpts, error) {
 
 // Validate returns an error for any invalid optional flags.
 func (o *svcLogsOpts) Validate() error {
-	if o.since != 0 && o.humanStartTime != "" {
-		return errors.New("only one of --since or --start-time may be used")
-	}
-
-	if o.humanEndTime != "" && o.follow {
-		return errors.New("only one of --follow or --end-time may be used")
-	}
-
-	if o.since != 0 {
-		if o.since < 0 {
-			return fmt.Errorf("--since must be greater than 0")
-		}
-		// round up to the nearest second
-		o.startTime = parseSince(o.since)
-	}
-
-	if o.humanStartTime != "" {
-		startTime, err := parseRFC3339(o.humanStartTime)
-		if err != nil {
-			return fmt.Errorf(`invalid argument %s for "--start-time" flag: %w`, o.humanStartTime, err)
-		}
-		o.startTime = aws.Int64(startTime)
-	}
-
-	if o.humanEndTime != "" {
-		endTime, err := parseRFC3339(o.humanEndTime)
-		if err != nil {
-			return fmt.Errorf(`invalid argument %s for "--end-time" flag: %w`, o.humanEndTime, err)
-		}
-		o.endTime = aws.Int64(endTime)
-	}
-
-	if o.limit != 0 && (o.limit < cwGetLogEventsLimitMin || o.limit > cwGetLogEventsLimitMax) {
-		return fmt.Errorf("--limit %d is out-of-bounds, value must be between %d and %d", o.limit, cwGetLogEventsLimitMin, cwGetLogEventsLimitMax)
-	}
-
 	return nil
 }
 
 // Ask prompts for and validates any required flags.
 func (o *svcLogsOpts) Ask() error {
-	if err := o.validateOrAskApp(); err != nil {
-		return err
+	return nil
+}
+
+var (
+	titleStyle = func() lipgloss.Style {
+		b := lipgloss.RoundedBorder()
+		b.Right = "├"
+		return lipgloss.NewStyle().BorderStyle(b).Padding(0, 1)
+	}()
+
+	infoStyle = func() lipgloss.Style {
+		b := lipgloss.RoundedBorder()
+		b.Left = "┤"
+		return titleStyle.Copy().BorderStyle(b)
+	}()
+
+	logsViewportStyle = func() lipgloss.Style {
+		b := lipgloss.DoubleBorder()
+		return lipgloss.NewStyle().BorderStyle(b).Padding(0, 1)
 	}
-	return o.validateAndAskSvcEnvName()
+)
+
+type keymap struct {
+	filter, scrollUp, scrollDown, search key.Binding
+}
+
+type model struct {
+	svc          string
+	filter       textarea.Model
+	help         help.Model
+	logsViewport viewport.Model
+	logs         []string
+	ready        bool
+	keymap       keymap
+
+	focus int
+}
+
+func newModel() model {
+	m := model{
+		logs: []string{
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit",
+			"sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+			"Ut enim ad minim veniam, quis nostrud exercitation ullamco",
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit",
+			"sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+			"Ut enim ad minim veniam, quis nostrud exercitation ullamco",
+			"laboris nisi ut aliquip ex ea commodo consequat.",
+			"Duis aute irure dolor in reprehenderit in voluptate velit esse cillum",
+			"dolore eu fugiat nulla pariatur.",
+			"Excepteur sint occaecat cupidatat non proident,",
+			"sunt in culpa qui officia deserunt mollit anim id est laborum.",
+			"laboris nisi ut aliquip ex ea commodo consequat.",
+			"Duis aute irure dolor in reprehenderit in voluptate velit esse cillum",
+			"dolore eu fugiat nulla pariatur.",
+			"Excepteur sint occaecat cupidatat non proident,",
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit",
+			"sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+			"Ut enim ad minim veniam, quis nostrud exercitation ullamco",
+			"laboris nisi ut aliquip ex ea commodo consequat.",
+			"Duis aute irure dolor in reprehenderit in voluptate velit esse cillum",
+			"dolore eu fugiat nulla pariatur.",
+			"Excepteur sint occaecat cupidatat non proident,",
+			"sunt in culpa qui officia deserunt mollit anim id est laborum.",
+			"sunt in culpa qui officia deserunt mollit anim id est laborum.",
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit",
+			"sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+			"Ut enim ad minim veniam, quis nostrud exercitation ullamco",
+			"laboris nisi ut aliquip ex ea commodo consequat.",
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit",
+			"sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+			"Ut enim ad minim veniam, quis nostrud exercitation ullamco",
+			"laboris nisi ut aliquip ex ea commodo consequat.",
+			"Duis aute irure dolor in reprehenderit in voluptate velit esse cillum",
+			"dolore eu fugiat nulla pariatur.",
+			"Excepteur sint occaecat cupidatat non proident,",
+			"sunt in culpa qui officia deserunt mollit anim id est laborum.",
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit",
+			"sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+			"Ut enim ad minim veniam, quis nostrud exercitation ullamco",
+			"laboris nisi ut aliquip ex ea commodo consequat.",
+			"Duis aute irure dolor in reprehenderit in voluptate velit esse cillum",
+			"dolore eu fugiat nulla pariatur.",
+			"Excepteur sint occaecat cupidatat non proident,",
+			"sunt in culpa qui officia deserunt mollit anim id est laborum.",
+			"Duis aute irure dolor in reprehenderit in voluptate velit esse cillum",
+			"dolore eu fugiat nulla pariatur.",
+			"Excepteur sint occaecat cupidatat non proident,",
+			"sunt in culpa qui officia deserunt mollit anim id est laborum.",
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit",
+			"sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+			"Ut enim ad minim veniam, quis nostrud exercitation ullamco",
+			"laboris nisi ut aliquip ex ea commodo consequat.",
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit",
+			"sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+			"Ut enim ad minim veniam, quis nostrud exercitation ullamco",
+			"laboris nisi ut aliquip ex ea commodo consequat.",
+			"Duis aute irure dolor in reprehenderit in voluptate velit esse cillum",
+			"dolore eu fugiat nulla pariatur.",
+			"Excepteur sint occaecat cupidatat non proident,",
+			"sunt in culpa qui officia deserunt mollit anim id est laborum.",
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit",
+			"sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+			"Ut enim ad minim veniam, quis nostrud exercitation ullamco",
+			"laboris nisi ut aliquip ex ea commodo consequat.",
+			"Duis aute irure dolor in reprehenderit in voluptate velit esse cillum",
+			"dolore eu fugiat nulla pariatur.",
+			"Excepteur sint occaecat cupidatat non proident,",
+			"sunt in culpa qui officia deserunt mollit anim id est laborum.",
+			"Duis aute irure dolor in reprehenderit in voluptate velit esse cillum",
+			"dolore eu fugiat nulla pariatur.",
+			"Excepteur sint occaecat cupidatat non proident,",
+			"sunt in culpa qui officia deserunt mollit anim id est laborum.",
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit",
+			"sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+			"Ut enim ad minim veniam, quis nostrud exercitation ullamco",
+			"laboris nisi ut aliquip ex ea commodo consequat.",
+			"Duis aute irure dolor in reprehenderit in voluptate velit esse cillum",
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit",
+			"sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+			"Ut enim ad minim veniam, quis nostrud exercitation ullamco",
+			"laboris nisi ut aliquip ex ea commodo consequat.",
+			"Duis aute irure dolor in reprehenderit in voluptate velit esse cillum",
+			"dolore eu fugiat nulla pariatur.",
+			"Excepteur sint occaecat cupidatat non proident,",
+			"sunt in culpa qui officia deserunt mollit anim id est laborum.",
+			"dolore eu fugiat nulla pariatur.",
+			"Excepteur sint occaecat cupidatat non proident,",
+			"sunt in culpa qui officia deserunt mollit anim id est laborum.",
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit",
+			"sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+			"Ut enim ad minim veniam, quis nostrud exercitation ullamco",
+			"laboris nisi ut aliquip ex ea commodo consequat.",
+			"Duis aute irure dolor in reprehenderit in voluptate velit esse cillum",
+			"dolore eu fugiat nulla pariatur.",
+			"Lorem ipsum dolor sit amet, consectetur adipiscing elit",
+			"sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+			"Ut enim ad minim veniam, quis nostrud exercitation ullamco",
+			"laboris nisi ut aliquip ex ea commodo consequat.",
+			"Duis aute irure dolor in reprehenderit in voluptate velit esse cillum",
+			"dolore eu fugiat nulla pariatur.",
+			"Excepteur sint occaecat cupidatat non proident,",
+			"sunt in culpa qui officia deserunt mollit anim id est laborum.",
+			"Excepteur sint occaecat cupidatat non proident,",
+			"sunt in culpa qui officia deserunt mollit anim id est laborum.",
+		},
+		help:   help.New(),
+		filter: textarea.New(),
+		keymap: keymap{
+			filter: key.NewBinding(
+				key.WithKeys("/"),
+				key.WithHelp("/", "filter"),
+			),
+			search: key.NewBinding(
+				key.WithKeys("enter"),
+				key.WithHelp("enter", "search"),
+			),
+			scrollUp: key.NewBinding(
+				key.WithKeys("k"),
+				key.WithHelp("k", "scroll up"),
+			),
+			scrollDown: key.NewBinding(
+				key.WithKeys("j"),
+				key.WithHelp("j", "scroll down"),
+			),
+		},
+	}
+
+	m.filter.SetHeight(1)
+	m.filter.Prompt = "filter"
+	m.filter.Blur()
+	m.filter.KeyMap.InsertNewline.SetEnabled(false)
+	return m
+}
+
+func (m model) Init() tea.Cmd {
+	// Just return `nil`, which means "no I/O right now, please."
+	return textarea.Blink
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q":
+			return m, tea.Quit
+		}
+
+	case tea.WindowSizeMsg:
+		headerHeight := lipgloss.Height(m.headerView())
+		footerHeight := lipgloss.Height(m.footerView())
+		verticalMarginHeight := headerHeight + footerHeight
+
+		if !m.ready {
+			m.logsViewport = viewport.New(msg.Width, msg.Height-verticalMarginHeight)
+			m.logsViewport.YPosition = headerHeight
+			m.logsViewport.HighPerformanceRendering = true
+			m.logsViewport.SetContent(strings.Join(m.logs, "\n"))
+			m.ready = true
+		} else {
+			m.logsViewport.Width = msg.Width
+			m.logsViewport.Height = msg.Height - verticalMarginHeight
+		}
+
+		cmds = append(cmds, viewport.Sync(m.logsViewport))
+	}
+
+	m.logsViewport, cmd = m.logsViewport.Update(msg)
+	cmds = append(cmds, cmd)
+
+	m.filter, cmd = m.filter.Update(msg)
+	cmds = append(cmds, cmd)
+	return m, tea.Batch(cmds...)
+}
+
+func (m model) View() string {
+	if !m.ready {
+		return "\n  Initializing..."
+	}
+
+	var view strings.Builder
+	view.WriteString(m.headerView())
+	view.WriteRune('\n')
+	view.WriteString(m.logsViewport.View())
+	view.WriteRune('\n')
+	view.WriteString(m.footerView())
+
+	return view.String()
+}
+
+func (m model) headerView() string {
+	title := titleStyle.Render("Logs for Service: iss-3714")
+	line := strings.Repeat("─", max(0, m.logsViewport.Width-lipgloss.Width(title)))
+	return lipgloss.JoinHorizontal(lipgloss.Center, title, line)
+}
+
+func (m model) footerView() string {
+	return m.help.ShortHelpView([]key.Binding{
+		m.keymap.filter,
+		m.keymap.scrollDown,
+		m.keymap.scrollUp,
+	})
+	/*
+		info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.logsViewport.ScrollPercent()*100))
+		line := strings.Repeat("─", max(0, m.logsViewport.Width-lipgloss.Width(info)))
+		return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
+	*/
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // Execute outputs logs of the service.
 func (o *svcLogsOpts) Execute() error {
-	if err := o.initLogsSvc(); err != nil {
-		return err
-	}
-	eventsWriter := logging.WriteHumanLogs
-	if o.shouldOutputJSON {
-		eventsWriter = logging.WriteJSONLogs
-	}
-	var limit *int64
-	if o.limit != 0 {
-		limit = aws.Int64(int64(o.limit))
-	}
-	err := o.logsSvc.WriteLogEvents(logging.WriteLogEventsOpts{
-		Follow:    o.follow,
-		Limit:     limit,
-		EndTime:   o.endTime,
-		StartTime: o.startTime,
-		TaskIDs:   o.taskIDs,
-		OnEvents:  eventsWriter,
-	})
-	if err != nil {
-		return fmt.Errorf("write log events for service %s: %w", o.name, err)
+	model := newModel()
+
+	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	if err := p.Start(); err != nil {
+		fmt.Printf("Alas, there's been an error: %v", err)
+		os.Exit(1)
 	}
 	return nil
 }
