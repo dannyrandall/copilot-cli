@@ -3,23 +3,31 @@ package logview
 import (
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 const tsOffset = "  "
 
-type log struct {
-	ts  time.Time
-	log string
+type QueryResult []Log
+
+func (q QueryResult) listItems() []list.Item {
+	items := make([]list.Item, len(q))
+	for i := range q {
+		items[i] = q[i]
+	}
+	return items
 }
 
-func (l log) FilterValue() string {
-	return l.ts.Format(time.RFC3339) + " " + l.log
+type Log struct {
+	Timestamp time.Time
+	Log       string
+}
+
+func (l Log) FilterValue() string {
+	return l.Timestamp.Format(time.RFC3339) + " " + l.Log
 }
 
 type logDelegate struct{}
@@ -37,32 +45,10 @@ func (d logDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
 }
 
 func (d logDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	log, ok := listItem.(log)
+	log, ok := listItem.(Log)
 	if !ok {
 		return
 	}
 
-	ts := log.ts.Format(time.RFC3339) + tsOffset
-	maxLineWidth := m.Width() - lipgloss.Width(ts)
-	if lipgloss.Width(log.log) < maxLineWidth {
-		fmt.Fprint(w, ts+log.log)
-		return
-	}
-
-	var lines []string
-	lastChop := 0
-	for i := range log.log {
-		if lipgloss.Width(log.log[lastChop:i]) == maxLineWidth {
-			lines = append(lines, log.log[lastChop:i])
-			lastChop = i
-		}
-	}
-
-	lines = append(lines, log.log[lastChop:])
-	whiteSpace := strings.Repeat(" ", lipgloss.Width(ts))
-	//for i := 1; i < len(lines); i++ {
-	//	lines[i] = whiteSpace + lines[i]
-	//}
-
-	fmt.Fprint(w, ts+strings.Join(lines, "\n"+whiteSpace))
+	fmt.Fprint(w, log.Timestamp.Format(time.RFC3339)+tsOffset+log.Log)
 }

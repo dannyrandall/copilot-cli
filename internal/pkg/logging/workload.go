@@ -29,6 +29,7 @@ const (
 
 type logGetter interface {
 	LogEvents(opts cloudwatchlogs.LogEventsOpts) (*cloudwatchlogs.LogEventsOutput, error)
+	LogEventsQuery(opts cloudwatchlogs.LogEventsOpts, q string) (*cloudwatchlogs.LogEventsOutput, error)
 }
 
 // WorkloadClient retrieves the logs of an Amazon ECS or AppRunner service.

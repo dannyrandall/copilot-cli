@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -121,17 +122,61 @@ func newSvcLogOpts(vars wkldLogsVars) (*svcLogsOpts, error) {
 
 // Validate returns an error for any invalid optional flags.
 func (o *svcLogsOpts) Validate() error {
+	if o.since != 0 && o.humanStartTime != "" {
+		return errors.New("only one of --since or --start-time may be used")
+	}
+
+	if o.humanEndTime != "" && o.follow {
+		return errors.New("only one of --follow or --end-time may be used")
+	}
+
+	if o.since != 0 {
+		if o.since < 0 {
+			return fmt.Errorf("--since must be greater than 0")
+		}
+		// round up to the nearest second
+		o.startTime = parseSince(o.since)
+	}
+
+	if o.humanStartTime != "" {
+		startTime, err := parseRFC3339(o.humanStartTime)
+		if err != nil {
+			return fmt.Errorf(`invalid argument %s for "--start-time" flag: %w`, o.humanStartTime, err)
+		}
+		o.startTime = aws.Int64(startTime)
+	}
+
+	if o.humanEndTime != "" {
+		endTime, err := parseRFC3339(o.humanEndTime)
+		if err != nil {
+			return fmt.Errorf(`invalid argument %s for "--end-time" flag: %w`, o.humanEndTime, err)
+		}
+		o.endTime = aws.Int64(endTime)
+	}
+
+	if o.limit != 0 && (o.limit < cwGetLogEventsLimitMin || o.limit > cwGetLogEventsLimitMax) {
+		return fmt.Errorf("--limit %d is out-of-bounds, value must be between %d and %d", o.limit, cwGetLogEventsLimitMin, cwGetLogEventsLimitMax)
+	}
 	return nil
 }
 
 // Ask prompts for and validates any required flags.
 func (o *svcLogsOpts) Ask() error {
-	return nil
+	if err := o.validateOrAskApp(); err != nil {
+		return err
+	}
+	return o.validateAndAskSvcEnvName()
 }
 
 // Execute outputs logs of the service.
 func (o *svcLogsOpts) Execute() error {
-	ui := logview.New()
+	if err := o.initLogsSvc(); err != nil {
+		return err
+	}
+
+	// get initial logs
+	logs := o.logsSvc.Query("")
+	ui := logview.New(logs, o.logsSvc.Query)
 
 	p := tea.NewProgram(ui, tea.WithAltScreen())
 	if err := p.Start(); err != nil {

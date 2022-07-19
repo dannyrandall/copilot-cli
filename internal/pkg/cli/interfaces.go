@@ -7,6 +7,7 @@ import (
 	"encoding"
 
 	"github.com/aws/copilot-cli/internal/pkg/aws/secretsmanager"
+	"github.com/aws/copilot-cli/internal/pkg/ui/logview"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	awscloudformation "github.com/aws/copilot-cli/internal/pkg/aws/cloudformation"
@@ -180,6 +181,7 @@ type repositoryService interface {
 
 type logEventsWriter interface {
 	WriteLogEvents(opts logging.WriteLogEventsOpts) error
+	Query(query string) logview.QueryResult
 }
 
 type templater interface {
