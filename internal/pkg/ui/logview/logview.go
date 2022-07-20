@@ -180,7 +180,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, m.keymap.focusToggle) && !m.queryLoading:
 				cmds = append(cmds, m.query.Focus())
 				m.focus = focusQuery
-			case key.Matches(msg, m.keymap.quit):
+			case key.Matches(msg, m.keymap.quit) && m.list.FilterState() != list.Filtering:
 				if m.follow {
 					close(m.done)
 				}
@@ -190,7 +190,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.list, cmd = m.list.Update(msg)
 					cmds = append(cmds, cmd)
 				}
-
 			}
 		case focusQuery:
 			switch {
