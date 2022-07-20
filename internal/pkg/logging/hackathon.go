@@ -75,7 +75,6 @@ func (s *WorkloadClient) StreamLogs(opts WriteLogEventsOpts, done chan struct{})
 				return
 			}
 			logEventsOpts.StreamLastEventTime = events.StreamLastEventTime
-			time.Sleep(cloudwatchlogs.SleepDuration)
 		}
 	}()
 
