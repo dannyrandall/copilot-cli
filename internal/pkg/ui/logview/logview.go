@@ -51,7 +51,10 @@ type Model struct {
 	Errs chan error
 	done chan struct{}
 
-	Follow bool
+	follow bool
+
+	showQueryView bool
+	showHelpView  bool
 }
 
 var (
@@ -89,6 +92,7 @@ func NewStreamer() (Model, chan struct{}) {
 	m.list.SetShowHelp(false)
 	m.list.SetFilteringEnabled(true)
 
+	m.follow = true
 	m.spinner.Spinner = randSpinner()
 
 	m.query.Prompt = "CloudFormation Query: "
@@ -147,6 +151,12 @@ func New(logs []Log, query func(string) []Log) Model {
 	m.list.SetShowHelp(false)
 	m.list.SetFilteringEnabled(false)
 
+	customKeyMap := list.DefaultKeyMap()
+	customKeyMap.Filter = key.Binding{}
+	m.list.KeyMap = customKeyMap
+
+	m.showQueryView = true
+	m.showHelpView = true
 	m.spinner.Spinner = randSpinner()
 
 	m.query.Prompt = "CloudFormation Query: "
@@ -173,12 +183,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, m.query.Focus())
 				m.focus = focusQuery
 			case key.Matches(msg, m.keymap.quit) && m.list.FilterState() != list.Filtering:
-				if m.Follow {
+				if m.follow {
 					close(m.done)
 				}
 				return m, tea.Quit
 			default:
-				if !m.Follow {
+				if !m.follow {
 					m.list, cmd = m.list.Update(msg)
 					cmds = append(cmds, cmd)
 				}
@@ -203,7 +213,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.list.InsertItem(len(m.list.Items()), msg))
 		cmds = append(cmds, m.getNextLog())
 	case error:
-		if m.Follow {
+		if m.follow {
 			close(m.done)
 		}
 		return m, tea.Quit
@@ -217,12 +227,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 	case tea.WindowSizeMsg:
-		m.list.SetHeight(msg.Height - lipgloss.Height(m.queryView()+"\n") - lipgloss.Height(m.helpView()+"\n") - lipgloss.Height(m.list.FilterInput.View()))
+		height := msg.Height - lipgloss.Height(m.list.FilterInput.View())
+		if m.showQueryView {
+			height -= lipgloss.Height(m.queryView() + "\n")
+		}
+		if m.showHelpView {
+			height -= lipgloss.Height(m.helpView() + "\n")
+		}
+		m.list.SetHeight(height)
 		m.list.SetWidth(msg.Width)
 		m.query.Width = msg.Width
 	}
 
-	if m.Follow {
+	if m.follow {
 		m.list, cmd = m.list.Update(msg)
 		cmds = append(cmds, cmd)
 	}
@@ -232,11 +249,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) View() string {
 	var view strings.Builder
-	view.WriteString(m.queryView())
-	view.WriteRune('\n')
+	if m.showQueryView {
+		view.WriteString(m.queryView())
+		view.WriteRune('\n')
+	}
 	view.WriteString(m.logView())
-	view.WriteRune('\n')
-	view.WriteString(m.helpView())
+	if m.showHelpView {
+		view.WriteRune('\n')
+		view.WriteString(m.helpView())
+	}
 	return view.String()
 }
 

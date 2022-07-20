@@ -64,6 +64,5 @@ func (d logDelegate) Render(w io.Writer, m list.Model, index int, listItem list.
 	if !ok {
 		return
 	}
-
 	fmt.Fprint(w, log.Timestamp.Format(time.RFC3339)+tsOffset+log.Log)
 }
