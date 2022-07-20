@@ -24,6 +24,14 @@ type Log struct {
 	Log       string
 }
 
+func (l Log) Title() string {
+	return l.Timestamp.Format(time.RFC3339) + tsOffset + l.Log
+}
+
+func (l Log) Description() string {
+	return ""
+}
+
 // FilterValue is the value we use when filtering against this item when
 // we're filtering the list.
 func (l Log) FilterValue() string {

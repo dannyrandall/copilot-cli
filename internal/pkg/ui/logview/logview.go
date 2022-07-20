@@ -64,7 +64,10 @@ var (
 )
 
 func NewStreamer() (Model, chan struct{}) {
-	delegate := logDelegate{}
+	delegate := list.NewDefaultDelegate()
+	delegate.ShowDescription = false
+	delegate.SetHeight(1)
+	delegate.SetSpacing(0)
 
 	m := Model{
 		help: help.New(),
@@ -84,6 +87,7 @@ func NewStreamer() (Model, chan struct{}) {
 	m.list.SetShowStatusBar(false)
 	m.list.SetShowPagination(false)
 	m.list.SetShowHelp(false)
+	m.list.SetFilteringEnabled(true)
 
 	m.spinner.Spinner = randSpinner()
 
@@ -106,7 +110,10 @@ func (m Model) getNextLog() tea.Cmd {
 }
 
 func New(logs []Log, query func(string) []Log) Model {
-	delegate := logDelegate{}
+	delegate := list.NewDefaultDelegate()
+	delegate.ShowDescription = false
+	delegate.SetHeight(1)
+	delegate.SetSpacing(0)
 
 	m := Model{
 		help: help.New(),
@@ -138,6 +145,7 @@ func New(logs []Log, query func(string) []Log) Model {
 	m.list.SetShowStatusBar(false)
 	m.list.SetShowPagination(false)
 	m.list.SetShowHelp(false)
+	m.list.SetFilteringEnabled(false)
 
 	m.spinner.Spinner = randSpinner()
 
