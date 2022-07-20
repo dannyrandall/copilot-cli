@@ -218,7 +218,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 	case tea.WindowSizeMsg:
-		m.list.SetHeight(msg.Height - lipgloss.Height(m.queryView()+"\n") - lipgloss.Height(m.helpView()+"\n") - lipgloss.Height(m.list.FilterInput.View()))
+		height := msg.Height - lipgloss.Height(m.list.FilterInput.View())
+		if m.showQueryView {
+			height -= lipgloss.Height(m.queryView() + "\n")
+		}
+		if m.showHelpView {
+			height -= lipgloss.Height(m.helpView() + "\n")
+		}
+		m.list.SetHeight(height)
 		m.list.SetWidth(msg.Width)
 		m.query.Width = msg.Width
 	}
