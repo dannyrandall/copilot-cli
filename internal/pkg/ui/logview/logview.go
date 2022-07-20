@@ -51,7 +51,10 @@ type Model struct {
 	Errs chan error
 	done chan struct{}
 
-	Follow bool
+	follow bool
+
+	showQueryView bool
+	showHelpView  bool
 }
 
 var (
@@ -83,8 +86,7 @@ func NewStreamer() (Model, chan struct{}) {
 	m.list.SetShowTitle(false)
 	m.list.SetShowStatusBar(false)
 	m.list.SetShowPagination(false)
-	m.list.SetShowHelp(false)
-
+	m.follow = true
 	m.spinner.Spinner = randSpinner()
 
 	m.query.Prompt = "CloudFormation Query: "
@@ -138,6 +140,8 @@ func New(logs []Log, query func(string) []Log) Model {
 	m.list.SetShowStatusBar(false)
 	m.list.SetShowPagination(false)
 	m.list.SetShowHelp(false)
+	m.showQueryView = true
+	m.showHelpView = true
 
 	m.spinner.Spinner = randSpinner()
 
@@ -165,12 +169,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, m.query.Focus())
 				m.focus = focusQuery
 			case key.Matches(msg, m.keymap.quit):
-				if m.Follow {
+				if m.follow {
 					close(m.done)
 				}
 				return m, tea.Quit
 			default:
-				if !m.Follow {
+				if !m.follow {
 					m.list, cmd = m.list.Update(msg)
 					cmds = append(cmds, cmd)
 				}
@@ -196,7 +200,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.list.InsertItem(len(m.list.Items()), msg))
 		cmds = append(cmds, m.getNextLog())
 	case error:
-		if m.Follow {
+		if m.follow {
 			close(m.done)
 		}
 		return m, tea.Quit
@@ -215,7 +219,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.query.Width = msg.Width
 	}
 
-	if m.Follow {
+	if m.follow {
 		m.list, cmd = m.list.Update(msg)
 		cmds = append(cmds, cmd)
 	}
@@ -225,11 +229,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) View() string {
 	var view strings.Builder
-	view.WriteString(m.queryView())
-	view.WriteRune('\n')
+	if m.showQueryView {
+		view.WriteString(m.queryView())
+		view.WriteRune('\n')
+	}
 	view.WriteString(m.logView())
-	view.WriteRune('\n')
-	view.WriteString(m.helpView())
+	if m.showHelpView {
+		view.WriteRune('\n')
+		view.WriteString(m.helpView())
+	}
 	return view.String()
 }
 
