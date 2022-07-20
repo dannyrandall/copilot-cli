@@ -174,6 +174,31 @@ func (o *svcLogsOpts) Execute() error {
 		return err
 	}
 
+	if o.follow {
+		var limit *int64
+		if o.limit != 0 {
+			limit = aws.Int64(int64(o.limit))
+		}
+
+		ui, done := logview.NewStreamer()
+		logs, errs := o.logsSvc.StreamLogs(logging.WriteLogEventsOpts{
+			Follow:    true,
+			Limit:     limit,
+			EndTime:   o.endTime,
+			StartTime: o.startTime,
+			TaskIDs:   o.taskIDs,
+		}, done)
+		ui.Logs = logs
+		ui.Errs = errs
+
+		p := tea.NewProgram(ui, tea.WithAltScreen())
+		if err := p.Start(); err != nil {
+			fmt.Printf("Alas, there's been an error: %v", err)
+			os.Exit(1)
+		}
+		return nil
+	}
+
 	// get initial logs
 	logs := o.logsSvc.Query("")
 	ui := logview.New(logs, o.logsSvc.Query)

@@ -46,6 +46,10 @@ type Model struct {
 	queryLoading bool
 	spinner      spinner.Model
 	queryFunc    func(string) func() tea.Msg
+
+	Logs chan Log
+	Errs chan error
+	done chan struct{}
 }
 
 var (
@@ -56,6 +60,48 @@ var (
 	viewportFocusedStyle = focusedBorder.Copy().PaddingLeft(2).PaddingRight(2)
 	viewportBlurredStyle = blurredBorder.Copy().PaddingLeft(2).PaddingRight(2)
 )
+
+func NewStreamer() (Model, chan struct{}) {
+	delegate := logDelegate{}
+
+	m := Model{
+		help: help.New(),
+		keymap: keymap{
+			quit: key.NewBinding(
+				key.WithKeys("q"),
+				key.WithHelp("q", "quit"),
+			),
+		},
+		query:   textinput.New(),
+		list:    list.New(nil, delegate, 0, 0),
+		spinner: spinner.New(),
+		done:    make(chan struct{}),
+	}
+
+	m.list.SetShowTitle(false)
+	m.list.SetShowStatusBar(false)
+	m.list.SetShowPagination(false)
+	m.list.SetShowHelp(false)
+
+	m.spinner.Spinner = randSpinner()
+
+	m.query.Prompt = "CloudFormation Query: "
+	m.query.Blur()
+	return m, m.done
+}
+
+func (m Model) getNextLog() tea.Cmd {
+	return func() tea.Msg {
+		select {
+		case l := <-m.Logs:
+			return l
+		case err := <-m.Errs:
+			return err
+		case <-m.done:
+			return nil
+		}
+	}
+}
 
 func New(logs []Log, query func(string) []Log) Model {
 	delegate := logDelegate{}
@@ -99,7 +145,7 @@ func New(logs []Log, query func(string) []Log) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return nil
+	return m.getNextLog()
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -117,6 +163,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, m.query.Focus())
 				m.focus = focusQuery
 			case key.Matches(msg, m.keymap.quit):
+				close(m.done)
 				return m, tea.Quit
 			default:
 				m.list, cmd = m.list.Update(msg)
@@ -138,6 +185,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, cmd)
 			}
 		}
+	case Log:
+		cmds = append(cmds, m.list.InsertItem(len(m.list.Items()), msg))
+		cmds = append(cmds, m.getNextLog())
+	case error:
+		close(m.done)
+		return m, tea.Quit
 	case []Log:
 		m.queryLoading = false
 		m.spinner.Spinner = randSpinner()

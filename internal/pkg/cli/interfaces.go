@@ -182,6 +182,7 @@ type repositoryService interface {
 type logEventsWriter interface {
 	WriteLogEvents(opts logging.WriteLogEventsOpts) error
 	Query(query string) []logview.Log
+	StreamLogs(opts logging.WriteLogEventsOpts, done chan struct{}) (chan logview.Log, chan error)
 }
 
 type templater interface {
