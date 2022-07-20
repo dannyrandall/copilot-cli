@@ -50,6 +50,8 @@ type Model struct {
 	Logs chan Log
 	Errs chan error
 	done chan struct{}
+
+	Follow bool
 }
 
 var (
@@ -163,11 +165,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, m.query.Focus())
 				m.focus = focusQuery
 			case key.Matches(msg, m.keymap.quit):
-				close(m.done)
+				if m.Follow {
+					close(m.done)
+				}
 				return m, tea.Quit
 			default:
-				m.list, cmd = m.list.Update(msg)
-				cmds = append(cmds, cmd)
+				if !m.Follow {
+					m.list, cmd = m.list.Update(msg)
+					cmds = append(cmds, cmd)
+				}
+
 			}
 		case focusQuery:
 			switch {
@@ -189,7 +196,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.list.InsertItem(len(m.list.Items()), msg))
 		cmds = append(cmds, m.getNextLog())
 	case error:
-		close(m.done)
+		if m.Follow {
+			close(m.done)
+		}
 		return m, tea.Quit
 	case []Log:
 		m.queryLoading = false
@@ -204,6 +213,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.list.SetHeight(msg.Height - lipgloss.Height(m.queryView()+"\n") - lipgloss.Height(m.helpView()+"\n") - lipgloss.Height(m.list.FilterInput.View()))
 		m.list.SetWidth(msg.Width)
 		m.query.Width = msg.Width
+	}
+
+	if m.Follow {
+		m.list, cmd = m.list.Update(msg)
+		cmds = append(cmds, cmd)
 	}
 
 	return m, tea.Batch(cmds...)

@@ -190,6 +190,7 @@ func (o *svcLogsOpts) Execute() error {
 		}, done)
 		ui.Logs = logs
 		ui.Errs = errs
+		ui.Follow = true
 
 		p := tea.NewProgram(ui, tea.WithAltScreen())
 		if err := p.Start(); err != nil {

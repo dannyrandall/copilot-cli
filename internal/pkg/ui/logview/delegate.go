@@ -27,7 +27,7 @@ type Log struct {
 // FilterValue is the value we use when filtering against this item when
 // we're filtering the list.
 func (l Log) FilterValue() string {
-	return l.Timestamp.Format(time.RFC3339) + " " + l.Log
+	return l.Log
 }
 
 type logDelegate struct{}
