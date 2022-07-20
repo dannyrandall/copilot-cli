@@ -20,18 +20,26 @@ func (c *CloudWatchLogs) LogEventsQuery(opts LogEventsOpts, query string) (*LogE
 		FilterPattern: aws.String(query),
 	}
 
-	resp, err := c.client.FilterLogEvents(realIn)
-	if err != nil {
-		return nil, fmt.Errorf("get log events of %s/*: %w", opts.LogGroup, err)
-	}
-
-	for _, event := range resp.Events {
-		log := &Event{
-			IngestionTime: aws.Int64Value(event.IngestionTime),
-			Message:       aws.StringValue(event.Message),
-			Timestamp:     aws.Int64Value(event.Timestamp),
+	for {
+		resp, err := c.client.FilterLogEvents(realIn)
+		if err != nil {
+			return nil, fmt.Errorf("get log events of %s/*: %w", opts.LogGroup, err)
 		}
-		events = append(events, log)
+
+		for _, event := range resp.Events {
+			log := &Event{
+				IngestionTime: aws.Int64Value(event.IngestionTime),
+				Message:       aws.StringValue(event.Message),
+				Timestamp:     aws.Int64Value(event.Timestamp),
+			}
+			events = append(events, log)
+		}
+
+		if resp.NextToken == nil {
+			break
+		}
+
+		realIn.NextToken = resp.NextToken
 	}
 
 	sort.SliceStable(events, func(i, j int) bool { return events[i].Timestamp < events[j].Timestamp })
