@@ -67,15 +67,7 @@ var (
 )
 
 func NewStreamer() (Model, chan struct{}) {
-	styles := list.NewDefaultItemStyles()
-	styles.NormalTitle = lipgloss.NewStyle().
-		Foreground(lipgloss.AdaptiveColor{Light: "#1a1a1a", Dark: "#dddddd"}).
-		Padding(0, 0, 0, 0)
-	styles.SelectedTitle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62"))
-	styles.FilterMatch = lipgloss.NewStyle().Bold(true)
-	delegate := logDelegate{
-		Styles: styles,
-	}
+	delegate := logDelegate{}
 
 	m := Model{
 		help: help.New(),

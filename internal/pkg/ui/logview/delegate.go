@@ -7,8 +7,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/reflow/truncate"
 )
 
 const tsOffset = "  "
@@ -32,9 +30,7 @@ func (l Log) FilterValue() string {
 	return l.Log
 }
 
-type logDelegate struct {
-	Styles list.DefaultItemStyles
-}
+type logDelegate struct{}
 
 // Height is the height of a list item.
 func (d logDelegate) Height() int {
@@ -56,71 +52,9 @@ func (d logDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
 
 // Render renders the item's view.
 func (d logDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	var (
-		title        string
-		matchedRunes []int
-		s            = &d.Styles
-	)
 	log, ok := listItem.(Log)
 	if !ok {
 		return
 	}
-	title = fmt.Sprint(log.Timestamp.Format(time.RFC3339) + tsOffset + log.Log)
-
-	if m.Width() <= 0 {
-		// short-circuit
-		return
-	}
-
-	// Prevent text from exceeding list width
-	textwidth := uint(m.Width() - s.NormalTitle.GetPaddingLeft() - s.NormalTitle.GetPaddingRight())
-	title = truncate.StringWithTail(title, textwidth, "...")
-	// Conditions
-	var (
-		isSelected = index == m.Index()
-		// emptyFilter = m.FilterState() == list.Filtering && m.FilterValue() == ""
-		isFiltered = m.FilterState() == list.Filtering || m.FilterState() == list.FilterApplied
-	)
-
-	if isFiltered {
-		// Get indices of matched characters
-		matchedRunes = m.MatchesForItem(index)
-	}
-
-	// Opt 2
-	if isFiltered {
-		// Highlight matches
-		unmatched := s.SelectedTitle.Inline(true)
-		matched := unmatched.Copy().Inherit(s.FilterMatch)
-		title = lipgloss.StyleRunes(title, matchedRunes, matched, unmatched)
-	}
-
-	if isSelected {
-		title = s.SelectedTitle.Render(title)
-	} else {
-		title = s.NormalTitle.Render(title)
-	}
-
-	// Original
-	// if emptyFilter {
-	// 	title = s.DimmedTitle.Render(title)
-	// } else if isSelected && m.FilterState() != list.Filtering {
-	// 	if isFiltered {
-	// 		// Highlight matches
-	// 		unmatched := s.SelectedTitle.Inline(true)
-	// 		matched := unmatched.Copy().Inherit(s.FilterMatch)
-	// 		title = lipgloss.StyleRunes(title, matchedRunes, matched, unmatched)
-	// 	}
-	// 	title = s.SelectedTitle.Render(title)
-	// } else {
-	// 	if isFiltered {
-	// 		// Highlight matches
-	// 		unmatched := s.NormalTitle.Inline(true)
-	// 		matched := unmatched.Copy().Inherit(s.FilterMatch)
-	// 		title = lipgloss.StyleRunes(title, matchedRunes, matched, unmatched)
-	// 	}
-	// 	title = s.NormalTitle.Render(title)
-	// }
-
-	fmt.Fprintf(w, "%s", title)
+	fmt.Fprint(w, log.Timestamp.Format(time.RFC3339)+tsOffset+log.Log)
 }
