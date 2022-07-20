@@ -1,6 +1,8 @@
 package logview
 
 import (
+	"fmt"
+	"math/rand"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -23,6 +25,18 @@ const (
 	focusLogs = iota
 	focusQuery
 )
+
+var spinners = []spinner.Spinner{
+	spinner.Line,
+	spinner.Dot,
+	spinner.MiniDot,
+	spinner.Jump,
+	spinner.Pulse,
+	spinner.Points,
+	spinner.Globe,
+	spinner.Moon,
+	spinner.Monkey,
+}
 
 type Model struct {
 	keymap   keymap
@@ -80,7 +94,7 @@ func New(logs QueryResult, query func(string) QueryResult) Model {
 	m.list.SetShowStatusBar(false)
 	m.list.SetShowPagination(false)
 
-	m.spinner.Spinner = spinner.Pulse
+	m.spinner.Spinner = randSpinner()
 
 	m.query.Prompt = "CloudFormation Query: "
 	m.query.Blur()
@@ -102,7 +116,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch m.focus {
 		case focusLogs:
 			switch {
-			case key.Matches(msg, m.keymap.focusToggle):
+			case key.Matches(msg, m.keymap.focusToggle) && !m.queryLoading:
 				cmds = append(cmds, m.query.Focus())
 				m.focus = focusQuery
 			case key.Matches(msg, m.keymap.quit):
@@ -129,6 +143,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case QueryResult:
 		m.queryLoading = false
+		m.spinner.Spinner = randSpinner()
 		cmds = append(cmds, m.list.SetItems(msg.listItems()))
 	case spinner.TickMsg:
 		if m.queryLoading {
@@ -162,23 +177,41 @@ func (m Model) queryView() string {
 }
 
 func (m Model) logView() string {
+	var logView string
 	if m.focus == focusQuery {
-		return viewportBlurredStyle.Render(m.list.View())
+		logView = viewportBlurredStyle.Render(m.list.View())
+	} else {
+		logView = viewportFocusedStyle.Render(m.list.View())
 	}
-	return viewportFocusedStyle.Render(m.list.View())
+
+	if m.queryLoading {
+		return viewportFocusedStyle.Render(fmt.Sprintf("%s Loading query...", m.spinner.View()))
+	}
+	return logView
 }
 
 func (m Model) helpView() string {
-	if m.focus == focusQuery {
+	switch {
+	case m.focus == focusQuery:
 		return m.help.ShortHelpView([]key.Binding{
 			m.keymap.focusToggle,
 			m.keymap.runQuery,
 		})
+	case m.focus == focusLogs && m.queryLoading:
+		return m.help.ShortHelpView([]key.Binding{
+			m.keymap.quit,
+		})
+	default:
+		return m.help.ShortHelpView([]key.Binding{
+			m.keymap.focusToggle,
+			key.NewBinding(key.WithHelp("j", "scroll down")),
+			key.NewBinding(key.WithHelp("k", "scroll up")),
+			m.keymap.quit,
+		})
 	}
-	return m.help.ShortHelpView([]key.Binding{
-		m.keymap.focusToggle,
-		key.NewBinding(key.WithHelp("j", "scroll down")),
-		key.NewBinding(key.WithHelp("k", "scroll up")),
-		m.keymap.quit,
-	})
+}
+
+func randSpinner() spinner.Spinner {
+	idx := rand.Intn(len(spinners))
+	return spinners[idx]
 }
