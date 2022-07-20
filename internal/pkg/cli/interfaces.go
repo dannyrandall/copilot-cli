@@ -181,7 +181,7 @@ type repositoryService interface {
 
 type logEventsWriter interface {
 	WriteLogEvents(opts logging.WriteLogEventsOpts) error
-	Query(query string) logview.QueryResult
+	Query(query string) []logview.Log
 }
 
 type templater interface {

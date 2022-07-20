@@ -6,7 +6,7 @@ import (
 	"github.com/aws/copilot-cli/internal/pkg/ui/logview"
 )
 
-func (s *WorkloadClient) Query(query string) logview.QueryResult {
+func (s *WorkloadClient) Query(query string) []logview.Log {
 	logEventsOpts := cloudwatchlogs.LogEventsOpts{
 		LogGroup: s.logGroupName,
 		Limit:    aws.Int64(10000),
@@ -17,7 +17,7 @@ func (s *WorkloadClient) Query(query string) logview.QueryResult {
 		panic(err)
 	}
 
-	logs := make(logview.QueryResult, len(events.Events))
+	logs := make([]logview.Log, len(events.Events))
 	for i := range events.Events {
 		logs[i] = logview.Log{
 			Log: events.Events[i].Message,

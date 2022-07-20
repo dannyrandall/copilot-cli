@@ -15,10 +15,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type keymap struct {
-	focusToggle, runQuery, quit key.Binding
-}
-
 type focus int
 
 const (
@@ -61,7 +57,7 @@ var (
 	viewportBlurredStyle = blurredBorder.Copy().PaddingLeft(2).PaddingRight(2)
 )
 
-func New(logs QueryResult, query func(string) QueryResult) Model {
+func New(logs []Log, query func(string) []Log) Model {
 	delegate := logDelegate{}
 
 	m := Model{
@@ -86,7 +82,7 @@ func New(logs QueryResult, query func(string) QueryResult) Model {
 			}
 		},
 		query:   textinput.New(),
-		list:    list.New(logs.listItems(), delegate, 0, 0),
+		list:    list.New(listItems(logs), delegate, 0, 0),
 		spinner: spinner.New(),
 	}
 
@@ -142,10 +138,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, cmd)
 			}
 		}
-	case QueryResult:
+	case []Log:
 		m.queryLoading = false
 		m.spinner.Spinner = randSpinner()
-		cmds = append(cmds, m.list.SetItems(msg.listItems()))
+		cmds = append(cmds, m.list.SetItems(listItems(msg)))
 	case spinner.TickMsg:
 		if m.queryLoading {
 			m.spinner, cmd = m.spinner.Update(msg)
@@ -189,27 +185,6 @@ func (m Model) logView() string {
 		return viewportFocusedStyle.Render(fmt.Sprintf("%s Loading query...", m.spinner.View()))
 	}
 	return logView
-}
-
-func (m Model) helpView() string {
-	switch {
-	case m.focus == focusQuery:
-		return m.help.ShortHelpView([]key.Binding{
-			m.keymap.focusToggle,
-			m.keymap.runQuery,
-		})
-	case m.focus == focusLogs && m.queryLoading:
-		return m.help.ShortHelpView([]key.Binding{
-			m.keymap.quit,
-		})
-	default:
-		return m.help.ShortHelpView([]key.Binding{
-			m.keymap.focusToggle,
-			key.NewBinding(key.WithHelp("j", "scroll down")),
-			key.NewBinding(key.WithHelp("k", "scroll up")),
-			m.keymap.quit,
-		})
-	}
 }
 
 func randSpinner() spinner.Spinner {

@@ -42,7 +42,7 @@ func (l *Event) HumanString() string {
 	for _, code := range warningCodes {
 		l.Message = colorCodeMessage(l.Message, code, color.Yellow)
 	}
-	return fmt.Sprintf("%s %s\n", color.Grey.Sprint(l.shortLogStreamName()), l.Message)
+	return fmt.Sprintf("%s %s", color.Grey.Sprint(l.shortLogStreamName()), l.Message)
 }
 
 func (l *Event) shortLogStreamName() string {
