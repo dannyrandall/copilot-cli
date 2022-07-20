@@ -93,6 +93,7 @@ func New(logs QueryResult, query func(string) QueryResult) Model {
 	m.list.SetShowTitle(false)
 	m.list.SetShowStatusBar(false)
 	m.list.SetShowPagination(false)
+	m.list.SetShowHelp(false)
 
 	m.spinner.Spinner = randSpinner()
 
