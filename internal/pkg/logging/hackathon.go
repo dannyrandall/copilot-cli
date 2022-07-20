@@ -22,9 +22,9 @@ func (s *WorkloadClient) Query(query string) []logview.Log {
 
 	logs := make([]logview.Log, len(events.Events))
 	for i := range events.Events {
-		// TODO convert timestamp
 		logs[i] = logview.Log{
-			Log: events.Events[i].Message,
+			Timestamp: time.Unix(events.Events[i].Timestamp/1000, 0),
+			Log:       events.Events[i].Message,
 		}
 	}
 
@@ -59,10 +59,10 @@ func (s *WorkloadClient) StreamLogs(opts WriteLogEventsOpts, done chan struct{})
 			}
 
 			for i := range events.Events {
-				// TODO convert timestamp
 				select {
 				case logs <- logview.Log{
-					Log: events.Events[i].Message,
+					Timestamp: time.Unix(events.Events[i].Timestamp/1000, 0),
+					Log:       events.Events[i].Message,
 				}:
 				case <-done:
 					return
