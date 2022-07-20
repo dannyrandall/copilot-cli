@@ -140,9 +140,13 @@ func New(logs []Log, query func(string) []Log) Model {
 	m.list.SetShowStatusBar(false)
 	m.list.SetShowPagination(false)
 	m.list.SetShowHelp(false)
+
+	customKeyMap := list.DefaultKeyMap()
+	customKeyMap.Filter = key.Binding{}
+	m.list.KeyMap = customKeyMap
+
 	m.showQueryView = true
 	m.showHelpView = true
-
 	m.spinner.Spinner = randSpinner()
 
 	m.query.Prompt = "CloudFormation Query: "
