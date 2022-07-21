@@ -1,8 +1,12 @@
 package logview
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -10,6 +14,46 @@ import (
 )
 
 const tsOffset = "  "
+
+func FilterLog(term string, targets []string) []list.Rank {
+	type matchedTarget struct {
+		timestamp time.Time
+		list.Rank
+	}
+	var matchedTargets []matchedTarget
+	for idx, t := range targets {
+		var l Log
+		if err := json.Unmarshal([]byte(t), &l); err != nil {
+			continue
+		}
+		subStringIdx := strings.Index(strings.ToLower(l.Log), strings.ToLower(term))
+		if subStringIdx == -1 {
+			continue
+		}
+		var matchedIndexes []int
+		for i := subStringIdx; i < int(math.Min(float64(len(l.Log)), float64(subStringIdx+len(term)))); i++ {
+			matchedIndexes = append(matchedIndexes, i)
+		}
+		matchedTargets = append(matchedTargets, matchedTarget{
+			timestamp: l.Timestamp,
+			Rank: list.Rank{
+				Index:          idx,
+				MatchedIndexes: matchedIndexes,
+			},
+		})
+	}
+	sort.SliceStable(matchedTargets, func(i, j int) bool {
+		return matchedTargets[i].timestamp.Before(matchedTargets[j].timestamp)
+	})
+	results := make([]list.Rank, len(matchedTargets))
+	for idx, t := range matchedTargets {
+		results[idx] = list.Rank{
+			MatchedIndexes: t.MatchedIndexes,
+			Index:          t.Index,
+		}
+	}
+	return results
+}
 
 func listItems(logs []Log) []list.Item {
 	items := make([]list.Item, len(logs))
@@ -20,8 +64,8 @@ func listItems(logs []Log) []list.Item {
 }
 
 type Log struct {
-	Timestamp time.Time
-	Log       string
+	Timestamp time.Time `json:"time"`
+	Log       string    `json:"log"`
 }
 
 func (l Log) Title() string {
@@ -35,7 +79,11 @@ func (l Log) Description() string {
 // FilterValue is the value we use when filtering against this item when
 // we're filtering the list.
 func (l Log) FilterValue() string {
-	return l.Log
+	b, err := json.Marshal(l)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 type logDelegate struct{}

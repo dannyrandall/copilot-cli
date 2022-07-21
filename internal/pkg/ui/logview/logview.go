@@ -71,7 +71,6 @@ func NewStreamer() (Model, chan struct{}) {
 	delegate.ShowDescription = false
 	delegate.SetHeight(1)
 	delegate.SetSpacing(0)
-
 	m := Model{
 		help: help.New(),
 		keymap: keymap{
@@ -91,6 +90,7 @@ func NewStreamer() (Model, chan struct{}) {
 	m.list.SetShowPagination(false)
 	m.list.SetShowHelp(false)
 	m.list.SetFilteringEnabled(true)
+	m.list.Filter = FilterLog
 
 	m.follow = true
 	m.spinner.Spinner = randSpinner()
@@ -233,6 +233,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.showHelpView {
 			height -= lipgloss.Height(m.helpView() + "\n")
+		}
+		if !m.showQueryView && !m.showHelpView {
+			height -= 2
 		}
 		m.list.SetHeight(height)
 		m.list.SetWidth(msg.Width)
