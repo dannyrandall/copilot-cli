@@ -200,6 +200,7 @@ func (o *svcLogsOpts) Execute() error {
 	}
 
 	// get initial logs
+	o.logsSvc.SetQueryStartTime(o.startTime)
 	logs := o.logsSvc.Query("")
 	ui := logview.New(logs, o.logsSvc.Query)
 

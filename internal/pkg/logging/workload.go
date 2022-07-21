@@ -40,7 +40,8 @@ type WorkloadClient struct {
 	w                       io.Writer
 	includeStateMachineLogs bool
 
-	now func() time.Time
+	now            func() time.Time
+	queryStartTime *int64
 }
 
 // WriteLogEventsOpts wraps the parameters to call WriteLogEvents.

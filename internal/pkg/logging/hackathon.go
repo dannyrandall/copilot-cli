@@ -9,10 +9,15 @@ import (
 	"github.com/aws/copilot-cli/internal/pkg/ui/logview"
 )
 
+func (s *WorkloadClient) SetQueryStartTime(ts *int64) {
+	s.queryStartTime = ts
+}
+
 func (s *WorkloadClient) Query(query string) []logview.Log {
 	logEventsOpts := cloudwatchlogs.LogEventsOpts{
-		LogGroup: s.logGroupName,
-		Limit:    aws.Int64(10000),
+		LogGroup:  s.logGroupName,
+		Limit:     aws.Int64(10000),
+		StartTime: s.queryStartTime,
 	}
 
 	events, err := s.eventsGetter.LogEventsQuery(logEventsOpts, query)
