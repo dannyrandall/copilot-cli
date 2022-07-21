@@ -45,9 +45,11 @@ func (m Model) helpView() string {
 		})
 	default:
 		return m.help.ShortHelpView([]key.Binding{
-			m.keymap.focusToggle,
 			key.NewBinding(key.WithHelp("j", "scroll down")),
 			key.NewBinding(key.WithHelp("k", "scroll up")),
+			key.NewBinding(key.WithHelp("h", "prev page")),
+			key.NewBinding(key.WithHelp("l", "next page")),
+			m.keymap.focusToggle,
 			m.keymap.quit,
 		})
 	}
