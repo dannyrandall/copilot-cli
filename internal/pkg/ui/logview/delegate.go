@@ -32,7 +32,7 @@ func FilterLog(term string, targets []string) []list.Rank {
 		}
 		var matchedIndexes []int
 		for i := subStringIdx; i < int(math.Min(float64(len(l.Log)), float64(subStringIdx+len(term)))); i++ {
-			matchedIndexes = append(matchedIndexes, i)
+			matchedIndexes = append(matchedIndexes, i+len(l.TimestampPrefix()))
 		}
 		matchedTargets = append(matchedTargets, matchedTarget{
 			timestamp: l.Timestamp,
@@ -76,6 +76,10 @@ func (l Log) Description() string {
 	return ""
 }
 
+func (l Log) TimestampPrefix() string {
+	return l.Timestamp.Format(time.RFC3339) + tsOffset
+}
+
 // FilterValue is the value we use when filtering against this item when
 // we're filtering the list.
 func (l Log) FilterValue() string {
@@ -112,5 +116,5 @@ func (d logDelegate) Render(w io.Writer, m list.Model, index int, listItem list.
 	if !ok {
 		return
 	}
-	fmt.Fprint(w, log.Timestamp.Format(time.RFC3339)+tsOffset+log.Log)
+	fmt.Fprint(w, log.TimestampPrefix()+log.Log)
 }
