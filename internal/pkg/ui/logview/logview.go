@@ -88,7 +88,7 @@ func NewStreamer() (Model, chan struct{}) {
 	m.list.SetShowTitle(false)
 	m.list.SetShowStatusBar(false)
 	m.list.SetShowPagination(true)
-	m.list.SetShowHelp(false)
+	m.list.SetShowHelp(true)
 	m.list.SetFilteringEnabled(true)
 	m.list.Filter = FilterLog
 
