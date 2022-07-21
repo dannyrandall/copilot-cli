@@ -147,7 +147,7 @@ func New(logs []Log, query func(string) []Log) Model {
 
 	m.list.SetShowTitle(false)
 	m.list.SetShowStatusBar(false)
-	m.list.SetShowPagination(false)
+	m.list.SetShowPagination(true)
 	m.list.SetShowHelp(false)
 	m.list.SetFilteringEnabled(false)
 
