@@ -26,22 +26,6 @@ type Union[Basic, Advanced any] struct {
 	Advanced Advanced
 }
 
-// BasicToUnion creates a new Union[Basic, Advanced] with the underlying
-// type set to Basic, holding val.
-func BasicToUnion[Basic, Advanced any](val Basic) Union[Basic, Advanced] {
-	return Union[Basic, Advanced]{
-		Basic: val,
-	}
-}
-
-// AdvancedToUnion creates a new Union[Basic, Advanced] with the underlying
-// type set to Advanced, holding val.
-func AdvancedToUnion[Basic, Advanced any](val Advanced) Union[Basic, Advanced] {
-	return Union[Basic, Advanced]{
-		Advanced: val,
-	}
-}
-
 // UnmarshalYAML decodes value into types Basic or Advanced.
 // If decoding does not return an error for a type, it is set on t.
 // An error is returned if value returns an error while decoding into both types.

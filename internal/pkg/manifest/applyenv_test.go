@@ -155,9 +155,11 @@ func TestApplyEnv_Int64(t *testing.T) {
 				RoutingRule: RoutingRuleConfigOrBool{
 					RoutingRuleConfiguration: RoutingRuleConfiguration{
 						HealthCheck: HealthCheckArgsOrString{
-							AdvancedToUnion[string](HTTPHealthCheckArgs{
-								HealthyThreshold: tc.initial,
-							}),
+							Union: Union[string, HTTPHealthCheckArgs]{
+								Advanced: HTTPHealthCheckArgs{
+									HealthyThreshold: tc.initial,
+								},
+							},
 						},
 					},
 				},
@@ -166,9 +168,11 @@ func TestApplyEnv_Int64(t *testing.T) {
 				RoutingRule: RoutingRuleConfigOrBool{
 					RoutingRuleConfiguration: RoutingRuleConfiguration{
 						HealthCheck: HealthCheckArgsOrString{
-							AdvancedToUnion[string](HTTPHealthCheckArgs{
-								HealthyThreshold: tc.override,
-							}),
+							Union: Union[string, HTTPHealthCheckArgs]{
+								Advanced: HTTPHealthCheckArgs{
+									HealthyThreshold: tc.override,
+								},
+							},
 						},
 					},
 				},
@@ -177,9 +181,11 @@ func TestApplyEnv_Int64(t *testing.T) {
 				RoutingRule: RoutingRuleConfigOrBool{
 					RoutingRuleConfiguration: RoutingRuleConfiguration{
 						HealthCheck: HealthCheckArgsOrString{
-							AdvancedToUnion[string](HTTPHealthCheckArgs{
-								HealthyThreshold: tc.expected,
-							}),
+							Union: Union[string, HTTPHealthCheckArgs]{
+								Advanced: HTTPHealthCheckArgs{
+									HealthyThreshold: tc.expected,
+								},
+							},
 						},
 					},
 				},

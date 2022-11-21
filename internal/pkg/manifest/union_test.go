@@ -280,9 +280,11 @@ key:
 	var kv keyValue
 	require.NoError(t, yaml.Unmarshal([]byte(in), &kv))
 	require.Equal(t, keyValue{
-		Key: embeddedType{AdvancedToUnion[string]([]string{
-			"asdf",
-		})},
+		Key: embeddedType{
+			Union[string, []string]{
+				Advanced: []string{"asdf"},
+			},
+		},
 	}, kv)
 
 	// test string
@@ -292,7 +294,11 @@ key: qwerty
 	kv = keyValue{}
 	require.NoError(t, yaml.Unmarshal([]byte(in), &kv))
 	require.Equal(t, keyValue{
-		Key: embeddedType{BasicToUnion[string, []string]("qwerty")},
+		Key: embeddedType{
+			Union[string, []string]{
+				Basic: "querty",
+			},
+		},
 	}, kv)
 }
 

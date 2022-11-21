@@ -116,7 +116,9 @@ func NewRequestDrivenWebService(props *RequestDrivenWebServiceProps) *RequestDri
 	svc.RequestDrivenWebServiceConfig.ImageConfig.Port = aws.Uint16(props.Port)
 	svc.RequestDrivenWebServiceConfig.InstanceConfig.Platform = props.Platform
 	if props.Private {
-		svc.Private = BasicToUnion[*bool, VPCEndpoint](aws.Bool(true))
+		svc.Private = Union[*bool, VPCEndpoint]{
+			Basic: aws.Bool(true),
+		}
 		svc.Network.VPC.Placement.PlacementString = (*PlacementString)(aws.String("private"))
 	}
 	svc.parser = template.New()
