@@ -198,6 +198,33 @@ key:
 		yaml:         `wrongkey: asdf`,
 		expectedYAML: `key: ""`,
 	})
+	runUnionTest(t, "semiComplexStruct or isZeroer, is non-zero isZeroer", unionTest[semiComplexStruct, isZeroer]{
+		yaml: `
+key:
+  subkey: "asdf"`,
+		expectedValue: Union[semiComplexStruct, isZeroer]{
+			Advanced: isZeroer{
+				SubKey: "asdf",
+			},
+		},
+		expectedYAML: `
+key:
+  subkey: asdf`,
+	})
+	runUnionTest(t, "semiComplexStruct or isZeroer, is zero isZeroer", unionTest[semiComplexStruct, isZeroer]{
+		yaml: `
+key:
+  subkey: "iamzero"`,
+		expectedValue: Union[semiComplexStruct, isZeroer]{
+			Advanced: isZeroer{
+				SubKey: "iamzero",
+			},
+		},
+		expectedYAML: `
+key:
+  bool: false
+  int: 0`,
+	})
 }
 
 type keyValue[Basic, Advanced any] struct {
