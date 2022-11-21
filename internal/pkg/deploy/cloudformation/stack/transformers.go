@@ -337,7 +337,8 @@ func convertHTTPHealthCheck(hc *manifest.HealthCheckArgsOrString) template.HTTPH
 	if hc.IsZero() {
 		return opts
 	}
-	if hc.IsBasic() {
+	if hc.Basic != "" {
+		// TODO double check logic
 		opts.HealthCheckPath = hc.Basic
 		return opts
 	}

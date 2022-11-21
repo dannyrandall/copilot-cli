@@ -23,37 +23,55 @@ type unionTest[A, B any] struct {
 
 func TestUnion(t *testing.T) {
 	runUnionTest(t, "string or []string, is string", unionTest[string, []string]{
-		yaml:          `key: hello`,
-		expectedValue: BasicToUnion[string, []string]("hello"),
+		yaml: `key: hello`,
+		expectedValue: Union[string, []string]{
+			Basic: "hello",
+		},
 	})
-	runUnionTest(t, "string or []string, is zero string, error", unionTest[string, []string]{
-		yaml:                 `key: ""`,
-		expectedUnmarshalErr: "unmarshal to basic form string: is zero\nunmarshal to advanced form []string: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `` into []string",
-		expectedYAML:         `key: null`,
-	})
-	runUnionTest(t, "*string or []string, is zero string", unionTest[*string, []string]{
-		yaml:          `key: ""`,
-		expectedValue: BasicToUnion[*string, []string](aws.String("")),
+	runUnionTest(t, "string or []string, is zero string", unionTest[string, []string]{
+		yaml: `key: ""`,
 	})
 	runUnionTest(t, "string or []string, is []string", unionTest[string, []string]{
 		yaml: `
 key:
   - asdf
   - jkl;`,
-		expectedValue: AdvancedToUnion[string]([]string{"asdf", "jkl;"}),
+		expectedValue: Union[string, []string]{
+			Advanced: []string{"asdf", "jkl;"},
+		},
+	})
+	runUnionTest(t, "*string or []string, is string", unionTest[*string, []string]{
+		yaml: `key: hello`,
+		expectedValue: Union[*string, []string]{
+			Basic: aws.String("hello"),
+		},
+	})
+	runUnionTest(t, "*string or []string, is zero string", unionTest[*string, []string]{
+		yaml: `key: ""`,
+		expectedValue: Union[*string, []string]{
+			Basic: aws.String(""),
+		},
+	})
+	runUnionTest(t, "*string or []string, is null", unionTest[*string, semiComplexStruct]{
+		yaml: `key: null`,
 	})
 	runUnionTest(t, "bool or semiComplexStruct, is false bool", unionTest[bool, semiComplexStruct]{
-		yaml:                 `key: false`,
-		expectedUnmarshalErr: "unmarshal to basic form bool: is zero\nunmarshal to advanced form manifest.semiComplexStruct: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!bool `false` into manifest.semiComplexStruct",
-		expectedYAML:         `key: null`,
-	})
-	runUnionTest(t, "*bool or semiComplexStruct, is false bool", unionTest[*bool, semiComplexStruct]{
-		yaml:          `key: false`,
-		expectedValue: BasicToUnion[*bool, semiComplexStruct](aws.Bool(false)),
+		yaml: `key: false`,
 	})
 	runUnionTest(t, "bool or semiComplexStruct, is true bool", unionTest[bool, semiComplexStruct]{
-		yaml:          `key: true`,
-		expectedValue: BasicToUnion[bool, semiComplexStruct](true),
+		yaml: `key: true`,
+		expectedValue: Union[bool, semiComplexStruct]{
+			Basic: true,
+		},
+	})
+	runUnionTest(t, "*bool or semiComplexStruct, is false bool", unionTest[*bool, semiComplexStruct]{
+		yaml: `key: false`,
+		expectedValue: Union[*bool, semiComplexStruct]{
+			Basic: aws.Bool(false),
+		},
+	})
+	runUnionTest(t, "*bool or semiComplexStruct, is null", unionTest[*bool, semiComplexStruct]{
+		yaml: `key: null`,
 	})
 	runUnionTest(t, "bool or semiComplexStruct, is semiComplexStruct with all fields set", unionTest[bool, semiComplexStruct]{
 		yaml: `
@@ -64,14 +82,16 @@ key:
   str_ptr: jkl;
   bool_ptr: false
   int_ptr: 70`,
-		expectedValue: AdvancedToUnion[bool](semiComplexStruct{
-			Str:     "asdf",
-			Bool:    true,
-			Int:     420,
-			StrPtr:  aws.String("jkl;"),
-			BoolPtr: aws.Bool(false),
-			IntPtr:  aws.Int(70),
-		}),
+		expectedValue: Union[bool, semiComplexStruct]{
+			Advanced: semiComplexStruct{
+				Str:     "asdf",
+				Bool:    true,
+				Int:     420,
+				StrPtr:  aws.String("jkl;"),
+				BoolPtr: aws.Bool(false),
+				IntPtr:  aws.Int(70),
+			},
+		},
 	})
 	runUnionTest(t, "bool or semiComplexStruct, is semiComplexStruct without strs set", unionTest[bool, semiComplexStruct]{
 		yaml: `
@@ -80,23 +100,27 @@ key:
   int: 420
   bool_ptr: false
   int_ptr: 70`,
-		expectedValue: AdvancedToUnion[bool](semiComplexStruct{
-			Bool:    true,
-			Int:     420,
-			BoolPtr: aws.Bool(false),
-			IntPtr:  aws.Int(70),
-		}),
+		expectedValue: Union[bool, semiComplexStruct]{
+			Advanced: semiComplexStruct{
+				Bool:    true,
+				Int:     420,
+				BoolPtr: aws.Bool(false),
+				IntPtr:  aws.Int(70),
+			},
+		},
 	})
-	runUnionTest(t, "string or semiComplexStruct, is struct with invalid fields, error", unionTest[string, semiComplexStruct]{
+	runUnionTest(t, "string or semiComplexStruct, is struct with invalid fields", unionTest[string, semiComplexStruct]{
+		// This case is useful to demonstrate the effects of the Unmarshal() logic.
+		// Because there is no error unmarshalling into the struct (without strict mode)
+		// this results in the value of the Union being the zero value of Basic (a string).
 		yaml: `
 key:
   invalid_key: asdf`,
-		expectedUnmarshalErr: `unmarshal to basic form string: yaml: unmarshal errors:
-  line 3: cannot unmarshal !!map into string
-unmarshal to advanced form manifest.semiComplexStruct: is zero`,
-		expectedYAML: `key: null`,
+		expectedYAML: `key: ""`,
 	})
-	runUnionTest(t, "complexStruct or semiComplexStruct, is complexStruct with all fields", unionTest[complexStruct, semiComplexStruct]{
+	runUnionTest(t, "semiComplexStruct or complexStruct, is complexStruct with all fields", unionTest[semiComplexStruct, complexStruct]{
+		// This case shows that when both types are successfully unmarshalled into,
+		// both types are set, but Marshal() considers the value as Advanced.
 		yaml: `
 key:
   str_ptr: qwerty
@@ -107,43 +131,22 @@ key:
     str_ptr: jkl;
     bool_ptr: false
     int_ptr: 70`,
-		expectedValue: BasicToUnion[complexStruct, semiComplexStruct](complexStruct{
-			StrPtr: aws.String("qwerty"),
-			SemiComplexStruct: semiComplexStruct{
-				Str:     "asdf",
-				Bool:    true,
-				Int:     420,
-				StrPtr:  aws.String("jkl;"),
-				BoolPtr: aws.Bool(false),
-				IntPtr:  aws.Int(70),
+		expectedValue: Union[semiComplexStruct, complexStruct]{
+			Basic: semiComplexStruct{
+				StrPtr: aws.String("qwerty"),
 			},
-		}),
-	})
-	runUnionTest(t, "two structs, basic type doesn't support IsZero, correct yaml", unionTest[notIsZeroer, isZeroer]{
-		yaml: `
-key:
-  subkey: hello`,
-		expectedValue: BasicToUnion[notIsZeroer, isZeroer](notIsZeroer{"hello"}),
-	})
-	runUnionTest(t, "two structs, basic type doesn't support IsZero, incorrect yaml", unionTest[notIsZeroer, isZeroer]{
-		yaml: `
-key:
-  randomkey: hello`,
-		expectedUnmarshalErr: `ambiguous value: neither the basic or advanced form for the field was set`,
-		expectedYAML:         `key: null`,
-	})
-	runUnionTest(t, "two structs, basic type supports IsZero, correct yaml", unionTest[isZeroer, notIsZeroer]{
-		yaml: `
-key:
-  subkey: hello`,
-		expectedValue: BasicToUnion[isZeroer, notIsZeroer](isZeroer{"hello"}),
-	})
-	runUnionTest(t, "two structs, basic type supports IsZero, incorrect yaml", unionTest[isZeroer, notIsZeroer]{
-		yaml: `
-key:
-  randomkey: hello`,
-		expectedUnmarshalErr: `ambiguous value: neither the basic or advanced form for the field was set`,
-		expectedYAML:         `key: null`,
+			Advanced: complexStruct{
+				StrPtr: aws.String("qwerty"),
+				SemiComplexStruct: semiComplexStruct{
+					Str:     "asdf",
+					Bool:    true,
+					Int:     420,
+					StrPtr:  aws.String("jkl;"),
+					BoolPtr: aws.Bool(false),
+					IntPtr:  aws.Int(70),
+				},
+			},
+		},
 	})
 	runUnionTest(t, "string or bool, is []string, error", unionTest[string, bool]{
 		yaml: `
@@ -153,52 +156,47 @@ key:
   line 3: cannot unmarshal !!seq into string
 unmarshal to advanced form bool: yaml: unmarshal errors:
   line 3: cannot unmarshal !!seq into bool`,
-		expectedYAML: `key: null`,
+		expectedYAML: `key: ""`,
 	})
-	runUnionTest(t, "bool or string, is []string, error", unionTest[bool, string]{
+	runUnionTest(t, "*bool or *string, is []string, error", unionTest[*bool, *string]{
 		yaml: `
 
 key:
   - asdf`,
-		expectedUnmarshalErr: `unmarshal to basic form bool: yaml: unmarshal errors:
+		expectedUnmarshalErr: `unmarshal to basic form *bool: yaml: unmarshal errors:
   line 4: cannot unmarshal !!seq into bool
-unmarshal to advanced form string: yaml: unmarshal errors:
+unmarshal to advanced form *string: yaml: unmarshal errors:
   line 4: cannot unmarshal !!seq into string`,
-		expectedYAML: `key: null`,
-	})
-	runUnionTest(t, "isZeroer or int, is random object, error", unionTest[isZeroer, int]{
-		yaml: `key:
-  randomkey: asdf`,
-		expectedUnmarshalErr: `unmarshal to basic form manifest.isZeroer: is zero
-unmarshal to advanced form int: yaml: unmarshal errors:
-  line 2: cannot unmarshal !!map into int`,
 		expectedYAML: `key: null`,
 	})
 	runUnionTest(t, "[]string or semiComplexStruct, is []string", unionTest[[]string, semiComplexStruct]{
 		yaml: `
 key:
   - asdf`,
-		expectedValue: BasicToUnion[[]string, semiComplexStruct]([]string{"asdf"}),
+		expectedValue: Union[[]string, semiComplexStruct]{
+			Basic: []string{"asdf"},
+		},
 	})
 	runUnionTest(t, "[]string or semiComplexStruct, is semiComplexStruct", unionTest[[]string, semiComplexStruct]{
 		yaml: `
 key:
   bool: true
   int: 420`,
-		expectedValue: AdvancedToUnion[[]string](semiComplexStruct{
-			Bool: true,
-			Int:  420,
-		}),
+		expectedValue: Union[[]string, semiComplexStruct]{
+			Advanced: semiComplexStruct{
+				Bool: true,
+				Int:  420,
+			},
+		},
 	})
 	runUnionTest(t, "[]string or semiComplexStruct, is string, error", unionTest[[]string, semiComplexStruct]{
 		yaml:                 `key: asdf`,
 		expectedUnmarshalErr: "unmarshal to basic form []string: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `asdf` into []string\nunmarshal to advanced form manifest.semiComplexStruct: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `asdf` into manifest.semiComplexStruct",
-		expectedYAML:         `key: null`,
+		expectedYAML:         `key: []`,
 	})
 	runUnionTest(t, "string or semiComplexStruct, never instantiated", unionTest[string, semiComplexStruct]{
-		yaml:          `wrongkey: asdf`,
-		expectedValue: Union[string, semiComplexStruct]{},
-		expectedYAML:  `key: null`,
+		yaml:         `wrongkey: asdf`,
+		expectedYAML: `key: ""`,
 	})
 }
 
@@ -285,14 +283,10 @@ type complexStruct struct {
 	SemiComplexStruct semiComplexStruct `yaml:"semi_complex_struct"`
 }
 
-type notIsZeroer struct {
-	SubKey string `yaml:"subkey"`
-}
-
 type isZeroer struct {
 	SubKey string `yaml:"subkey"`
 }
 
 func (a isZeroer) IsZero() bool {
-	return a.SubKey == ""
+	return a.SubKey == "iamzero"
 }
