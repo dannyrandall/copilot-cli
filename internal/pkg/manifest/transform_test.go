@@ -656,73 +656,72 @@ type unionTransformerTest[Basic, Advanced any] struct {
 	expected Union[Basic, Advanced]
 }
 
-func TestTransformer_Generic(t *testing.T) {
-	runUnionTransformerTests(t, map[string]unionTransformerTest[any, any]{
-		"switches to Simple from Advanced if overridden": {
-			original: AdvancedToUnion[any, any](nil),
-			override: BasicToUnion[any, any](nil),
-			expected: BasicToUnion[any, any](nil),
-		},
-		"switches to Advanced from Simple if overridden": {
-			original: BasicToUnion[any, any](nil),
-			override: AdvancedToUnion[any, any](nil),
-			expected: AdvancedToUnion[any, any](nil),
-		},
-		"switches to Simple if original unset": {
-			original: Union[any, any]{},
-			override: BasicToUnion[any, any](nil),
-			expected: BasicToUnion[any, any](nil),
-		},
-		"switches to Advanced if original unset": {
-			original: Union[any, any]{},
-			override: AdvancedToUnion[any, any](nil),
-			expected: AdvancedToUnion[any, any](nil),
-		},
-	})
-}
-
 func TestTransformer_StringOrHealthCheckArgs(t *testing.T) {
 	runUnionTransformerTests(t, map[string]unionTransformerTest[string, HTTPHealthCheckArgs]{
 		"string unset if args set": {
-			original: BasicToUnion[string, HTTPHealthCheckArgs]("mockPath"),
-			override: AdvancedToUnion[string](HTTPHealthCheckArgs{
-				Path:         aws.String("mockPathArgs"),
-				SuccessCodes: aws.String("200"),
-			}),
-			expected: AdvancedToUnion[string](HTTPHealthCheckArgs{
-				Path:         aws.String("mockPathArgs"),
-				SuccessCodes: aws.String("200"),
-			}),
+			original: Union[string, HTTPHealthCheckArgs]{
+				Basic: "mockPath",
+			},
+			override: Union[string, HTTPHealthCheckArgs]{
+				Advanced: HTTPHealthCheckArgs{
+					Path:         aws.String("mockPathArgs"),
+					SuccessCodes: aws.String("200"),
+				},
+			},
+			expected: Union[string, HTTPHealthCheckArgs]{
+				Advanced: HTTPHealthCheckArgs{
+					Path:         aws.String("mockPathArgs"),
+					SuccessCodes: aws.String("200"),
+				},
+			},
 		},
 		"args unset if string set": {
-			original: AdvancedToUnion[string](HTTPHealthCheckArgs{
-				Path:         aws.String("mockPathArgs"),
-				SuccessCodes: aws.String("200"),
-			}),
-			override: BasicToUnion[string, HTTPHealthCheckArgs]("mockPath"),
-			expected: BasicToUnion[string, HTTPHealthCheckArgs]("mockPath"),
+			original: Union[string, HTTPHealthCheckArgs]{
+				Advanced: HTTPHealthCheckArgs{
+					Path:         aws.String("mockPathArgs"),
+					SuccessCodes: aws.String("200"),
+				},
+			},
+			override: Union[string, HTTPHealthCheckArgs]{
+				Basic: "mockPath",
+			},
+			expected: Union[string, HTTPHealthCheckArgs]{
+				Basic: "mockPath",
+			},
 		},
 		"string merges correctly": {
-			original: BasicToUnion[string, HTTPHealthCheckArgs]("path"),
-			override: BasicToUnion[string, HTTPHealthCheckArgs]("newPath"),
-			expected: BasicToUnion[string, HTTPHealthCheckArgs]("newPath"),
+			original: Union[string, HTTPHealthCheckArgs]{
+				Basic: "path",
+			},
+			override: Union[string, HTTPHealthCheckArgs]{
+				Basic: "newPath",
+			},
+			expected: Union[string, HTTPHealthCheckArgs]{
+				Basic: "newPath",
+			},
 		},
 		"args merge correctly": {
-			original: AdvancedToUnion[string](HTTPHealthCheckArgs{
-				Path:             aws.String("mockPathArgs"),
-				SuccessCodes:     aws.String("200"),
-				HealthyThreshold: aws.Int64(10),
-			}),
-			override: AdvancedToUnion[string](HTTPHealthCheckArgs{
-				SuccessCodes:       aws.String("420"),
-				UnhealthyThreshold: aws.Int64(20),
-			}),
-			expected: AdvancedToUnion[string](HTTPHealthCheckArgs{
-				Path:               aws.String("mockPathArgs"), // merged unchanged
-				SuccessCodes:       aws.String("420"),          // updated
-				HealthyThreshold:   aws.Int64(10),              // comes from original
-				UnhealthyThreshold: aws.Int64(20),              // comes from override
-			}),
+			original: Union[string, HTTPHealthCheckArgs]{
+				Advanced: HTTPHealthCheckArgs{
+					Path:             aws.String("mockPathArgs"),
+					SuccessCodes:     aws.String("200"),
+					HealthyThreshold: aws.Int64(10),
+				},
+			},
+			override: Union[string, HTTPHealthCheckArgs]{
+				Advanced: HTTPHealthCheckArgs{
+					SuccessCodes:       aws.String("420"),
+					UnhealthyThreshold: aws.Int64(20),
+				},
+			},
+			expected: Union[string, HTTPHealthCheckArgs]{
+				Advanced: HTTPHealthCheckArgs{
+					Path:               aws.String("mockPathArgs"), // merged unchanged
+					SuccessCodes:       aws.String("420"),          // updated
+					HealthyThreshold:   aws.Int64(10),              // comes from original
+					UnhealthyThreshold: aws.Int64(20),              // comes from override
+				},
+			},
 		},
 	})
 }

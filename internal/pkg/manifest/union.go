@@ -38,34 +38,23 @@ func (t *Union[Basic, Advanced]) UnmarshalYAML(value *yaml.Node) error {
 
 	bErr := value.Decode(&basic)
 	aErr := value.Decode(&advanced)
-	if bErr != nil && aErr != nil {
+	switch {
+	case bErr != nil && aErr != nil:
 		// multiline error because yaml.TypeError (which this likely is)
 		// is already a multiline error
 		return fmt.Errorf("unmarshal to basic form %T: %s\nunmarshal to advanced form %T: %s", t.Basic, bErr, t.Advanced, aErr)
-	}
-
-	if bErr == nil {
+	case aErr == nil && !reflect.ValueOf(advanced).IsZero():
+		t.Advanced = advanced
+	case bErr == nil && !reflect.ValueOf(basic).IsZero():
 		t.Basic = basic
 	}
-	if aErr == nil {
-		t.Advanced = advanced
-	}
-	return nil
-}
 
-// isZero returns true if:
-//   - v is a yaml.Zeroer and IsZero().
-//   - v is not a yaml.Zeroer and determined to be zero via reflection.
-func isZero(v any) bool {
-	if z, ok := v.(yaml.IsZeroer); ok {
-		return z.IsZero()
-	}
-	return reflect.ValueOf(v).IsZero()
+	return nil
 }
 
 // MarshalYAML implements yaml.Marshaler.
 func (t Union[_, _]) MarshalYAML() (interface{}, error) {
-	if !isZero(t.Advanced) {
+	if !reflect.ValueOf(t.Advanced).IsZero() {
 		return t.Advanced, nil
 	}
 	return t.Basic, nil
@@ -74,10 +63,10 @@ func (t Union[_, _]) MarshalYAML() (interface{}, error) {
 // IsZero returns true if the set value of t is determined to be zero
 // via yaml.Zeroer or reflection.
 func (t Union[_, _]) IsZero() bool {
-	if !isZero(t.Advanced) {
+	if !reflect.ValueOf(t.Advanced).IsZero() {
 		return false
 	}
-	return isZero(t.Basic)
+	return !reflect.ValueOf(t.Basic).IsZero()
 }
 
 // validate calls t.validate() on the value of t. If the
@@ -85,7 +74,7 @@ func (t Union[_, _]) IsZero() bool {
 func (t Union[_, _]) validate() error {
 	// type declarations inside generic functions not currently supported,
 	// so we use an inline validate() interface
-	if !isZero(t.Advanced) {
+	if !reflect.ValueOf(t.Advanced).IsZero() {
 		if v, ok := any(t.Advanced).(interface{ validate() error }); ok {
 			return v.validate()
 		}
